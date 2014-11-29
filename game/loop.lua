@@ -23,13 +23,8 @@
 -- [ MIT license: http://www.opensource.org/licenses/mit-license.php ]
 --
 
--- Exports --
-local M = {}
-
 -- Standard library imports --
 local assert = assert
-local ceil = math.ceil
-local ipairs = ipairs
 local running = coroutine.running
 local status = coroutine.status
 local type = type
@@ -37,21 +32,13 @@ local wrap = coroutine.wrap
 local yield = coroutine.yield
 
 -- Modules --
--- local game_loop_config = require("config.game_loop")
 local bind = require("tektite_core.bind")
-local controls = require("s3_utils.controls")
-local dots = require("s3_utils.dots")
-local enemies = require("game.Enemies")
-local event_blocks = require("s3_utils.event_blocks")
-local global_events = require("s3_utils.global_events")
+local game_loop_config = require("config.GameLoop")
 local level_list = require("game.LevelsList")
 local persistence = require("corona_utils.persistence")
-local player = require("game.Player")
 local scenes = require("corona_utils.scenes")
-local tile_maps = require("s3_utils.tile_maps")
 
 -- Corona globals --
-local display = display
 local Runtime = Runtime
 
 -- Corona modules --
@@ -59,42 +46,42 @@ local composer = require("composer")
 
 -- Exports --
 local M = {}
---[[
--- Tile names, expanded from two-character shorthands --
-local Names = {
-	_H = "Horizontal", _V = "Vertical",
-	UL = "UpperLeft", UR = "UpperRight", LL = "LowerLeft", LR = "LowerRight",
-	TT = "TopT", LT = "LeftT", RT = "RightT", BT = "BottomT",
-	_4 = "FourWays", _U = "Up", _L = "Left", _R = "Right", _D = "Down"
-}]]
 
--- GENERALIZE: config.on_decode
+-- Assorted values, during normal play... --
+local NormalValues = game_loop_config.normal_values
+
+-- ...those same values, if the level was launched from the editor... --
+local TestingValues = game_loop_config.testing_values
+
+-- ...or from the intro / title screen... --
+local QuickTestValues = game_loop_config.quick_test_values
+
+-- ...the current set of values in effect  --
+local Values
+
+--- DOCME
+function M.GetWaitToEndTime ()
+	return Values.wait_to_end
+end
+
+-- Helper to call a possibly non-existent function
+local function Call (func, ...)
+	if func then
+		return func(...)
+	end
+end
 
 -- Decodes a level blob into a level list-compatible form
 local function Decode (str)
 	local level = persistence.Decode(str)
---[[
-	level.ncols = level.main[1]
-	level.start_col = level.player.col
-	level.start_row = level.player.row
 
-	for i, tile in ipairs(level.tiles.values) do
-		level[i] = Names[tile] or false
-	end
-]]
+	Call(game_loop_config.on_decode, level)
+
 	return level
 end
 
 -- State of in-progress level --
 local CurrentLevel
-
--- Tile dimensions --
-local Width, Height = 64, 64 -- TODO: Generalize! (probably can be subsumed...)
-
--- Helper to iterate on possibly empty tables
-local function Ipairs (t)
-	return ipairs(t or CurrentLevel)
-end
 
 -- In-progress loading coroutine --
 local Loading
@@ -118,29 +105,6 @@ local function LoadSome ()
 	end
 end
 
--- Primary display groups --
-local Groups = { "game_group", "hud_group" } -- TODO: Generalize! config.groups
-
--- Assorted values, during normal play... --
-local NormalValues = { wait_to_end = 3000 } -- TODO: Generalize! config.normal_values
-
-function NormalValues.return_to (info) -- TODO: Generalize?
-	if info.why == "won" and info.which > persistence.GetConfig().completed then
-		return "scene.LevelSelect" -- TODO: Gen...
-	else
-		return "scene.Title" -- TODO: Gen...
-	end
-end
-
--- ...those same values, if the level was launched from the editor... --
-local TestingValues = { return_to = "s3_editor.scene.Map", wait_to_end = 500 } -- TODO: Gen... config.testing_values
-
--- ...or from the intro / title screen... --
-local QuickTestValues = { return_to = "scene.Title", wait_to_end = 500 } -- TODO: Gen... config.quick_test_values
-
--- ...the current set of values in effect  --
-local Values
-
 -- Cues an overlay scene
 local function DoOverlay (name, func, arg)
 	if name and Values == NormalValues then
@@ -148,14 +112,6 @@ local function DoOverlay (name, func, arg)
 	else
 		func(arg)
 	end
-end
-
--- Overlay loop spin lock --
-local IsDone
-
--- Ends overlay loop
-local function EndLoop ()
-	IsDone = true
 end
 
 --- Loads a level.
@@ -179,10 +135,10 @@ function M.LoadLevel (view, which)
 	assert(not Loading, "Load already in progress")
 
 	local coming_from = scenes.ComingFrom()
--- TODO: Generalize... config.choose_values
-	if coming_from == "LevelSelect" then
+
+	if coming_from == game_loop_config.coming_from_normal then
 		Values = NormalValues
-	elseif coming_from == "Editor" then
+	elseif coming_from == game_loop_config.coming_from_testing then
 		Values = TestingValues
 	else
 		Values = QuickTestValues
@@ -199,66 +155,22 @@ function M.LoadLevel (view, which)
 		else
 			level = level_list.GetLevel(which)
 		end
--- TODO: Generalize: config.populate_level
-		-- Record some information to pass along via dispatch.
-		CurrentLevel = { ncols = level.ncols, nrows = ceil(#level / level.ncols), w = Width, h = Height, which = which }
 
-		-- Add the primary display groups.
-		for _, name in ipairs(Groups) do
-			CurrentLevel[name] = display.newGroup()
+		-- Do some preparation before entering.
+		CurrentLevel = { which = which }
 
-			view:insert(CurrentLevel[name])
-		end
+		Call(game_loop_config.before_entering, view, CurrentLevel, level, level_list)
 
-		-- Add game group sublayers, duplicating them in the level info for convenience.
-		for _, name in ipairs{ "bg_layer", "tiles_layer", "decals_layer", "things_layer", "markers_layer" } do
-			local layer = display.newGroup()
-
-			CurrentLevel[name] = layer
-
-			CurrentLevel.game_group:insert(layer)
-		end
--- TODO: Generalize: config.preload
-		-- Add the level background, falling back to a decent default if none was given.
-		local bg_func = level.background or level_list.DefaultBackground
-
-		bg_func(CurrentLevel.bg_layer, CurrentLevel.ncols, CurrentLevel.nrows, Width, Height)
--- /END GENERALIZE
 		-- Dispatch to "enter level" observers, now that the basics are in place.
 		bind.Reset("loading_level")
 
 		CurrentLevel.name = "enter_level"
 
 		Runtime:dispatchEvent(CurrentLevel)
--- TODO: Generalize: config.add_things
-		-- Add the tiles to the level...
-		local tgroup = tile_maps.NewImageGroup()
 
-		CurrentLevel.tiles_layer:insert(tgroup)
+		-- Add things to the level.
+		Call(game_loop_config.add_things, CurrentLevel, level)
 
-		tile_maps.AddTiles(tgroup, level)
-
-		-- ...and the event blocks...
-		for _, block in Ipairs(level.event_blocks) do
-			event_blocks.AddBlock(block)
-		end
-
-		-- ...and the dots...
-		for _, dot in Ipairs(level.dots) do
-			dots.AddDot(CurrentLevel.things_layer, dot)
-		end
-
-		-- ...and the player...
-		player.AddPlayer(CurrentLevel.things_layer, level.start_col, level.start_row)
-
-		-- ...and the enemies...
-		for _, enemy in Ipairs(level.enemies) do
-			enemies.SpawnEnemy(CurrentLevel.things_layer, enemy)
-		end
-
-		-- ...and any global events.
-		global_events.AddEvents(level.global_events)
--- /END GENERALIZE
 		-- Patch up deferred objects.
 		bind.Resolve("loading_level")
 
@@ -267,11 +179,13 @@ function M.LoadLevel (view, which)
 		-- well. We try to account for this by waiting a frame and getting a fresh start.
 		-- This will actually go several frames in the typical (i.e. non-testing) case
 		-- that we are showing a "starting the level" overlay at the same time.
-		IsDone = false
+		local is_done = false
 
-		DoOverlay("overlay.StartLevel", EndLoop) -- TODO: Generalize: config.start_overlay
+		DoOverlay(game_loop_config.start_overlay, function()
+			is_done = true
+		end)
 
-		repeat yield() until IsDone
+		repeat yield() until is_done
 
 		-- Dispatch to "things_loaded" observers, now that most objects are in place.
 		CurrentLevel.name = "things_loaded"
@@ -295,11 +209,11 @@ local function Leave (info)
 		return_to = return_to(info)
 	end
 
-	composer.gotoScene(return_to, "crossFade") -- TODO: Generalize: config.leave_effect
+	composer.gotoScene(return_to, game_loop_config.leave_effect)
 end
 
 -- Possible overlays to play on unload --
-local Overlay = { won = "overlay.Win", lost = "overlay.OutOfLives" } -- TODO: Generalize: config.win_overlay, config.lost_overlay
+local Overlay = { won = game_loop_config.win_overlay, lost = game_loop_config.lost_overlay }
 
 --- Unloads the current level and returns to a menu.
 --
@@ -317,20 +231,13 @@ function M.UnloadLevel (why)
 		DoOverlay(Overlay[why], Leave, { which = CurrentLevel.which, why = why })
 	end
 end
--- TODO: Generalize: config.extend?
--- On(win): unload the level and do win-related logic
-global_events.ExtendAction("win", function()
-	timer.performWithDelay(Values.wait_to_end, function()
-		M.UnloadLevel("won")
-	end)
-end)
--- /END GENERALIZE
+
+-- Install extensions.
+Call(game_loop_config.extend)
 
 -- Listen to events.
 Runtime:addEventListener("enter_menus", function()
-	for _, name in ipairs(Groups) do
-		display.remove(CurrentLevel and CurrentLevel[name])
-	end
+	Call(game_loop_config.cleanup, CurrentLevel)
 
 	CurrentLevel = nil
 end)
