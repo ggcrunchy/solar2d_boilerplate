@@ -43,6 +43,7 @@ local var_dump = require("tektite_core.var.dump")
 
 -- Corona globals --
 local native = native
+local Runtime = Runtime
 local system = system
 
 -- Install the coroutine time logic.

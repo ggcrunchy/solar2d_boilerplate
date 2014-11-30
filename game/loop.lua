@@ -34,7 +34,6 @@ local yield = coroutine.yield
 -- Modules --
 local bind = require("tektite_core.bind")
 local game_loop_config = require("config.GameLoop")
-local level_list = require("game.LevelsList")
 local persistence = require("corona_utils.persistence")
 local scenes = require("corona_utils.scenes")
 
@@ -153,13 +152,13 @@ function M.LoadLevel (view, which)
 		if type(which) == "string" then
 			level, which = Decode(which), ""
 		else
-			level = level_list.GetLevel(which)
+			level = game_loop_config.level_list.GetLevel(which)
 		end
 
 		-- Do some preparation before entering.
 		CurrentLevel = { which = which }
 
-		Call(game_loop_config.before_entering, view, CurrentLevel, level, level_list)
+		Call(game_loop_config.before_entering, view, CurrentLevel, level, game_loop_config.level_list)
 
 		-- Dispatch to "enter level" observers, now that the basics are in place.
 		bind.Reset("loading_level")
@@ -232,8 +231,8 @@ function M.UnloadLevel (why)
 	end
 end
 
--- Install extensions.
-Call(game_loop_config.extend)
+-- Perform any other initialization.
+Call(game_loop_config.on_init)
 
 -- Listen to events.
 Runtime:addEventListener("enter_menus", function()
