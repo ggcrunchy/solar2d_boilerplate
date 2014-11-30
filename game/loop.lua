@@ -113,6 +113,22 @@ local function DoOverlay (name, func, arg)
 	end
 end
 
+-- Coming from -> values map; fallback values --
+local ComingFromValues, DefValues = {}, NormalValues
+
+-- Set up the value associations.
+for what, values in pairs{ normal = NormalValues, quick_test = QuickTestValues, testing = TestingValues } do
+	local come_from = game_loop_config["coming_from_" .. what]
+
+	if come_from then
+		ComingFromValues[come_from] = values
+	end
+
+	if what == game_loop_config.default_values then
+		DefValues = values
+	end
+end
+
 --- Loads a level.
 --
 -- The level information is gathered into a table and the **enter_level** event list is
@@ -133,15 +149,7 @@ function M.LoadLevel (view, which)
 	assert(not CurrentLevel, "Level not unloaded")
 	assert(not Loading, "Load already in progress")
 
-	local coming_from = scenes.ComingFrom()
-
-	if coming_from == game_loop_config.coming_from_normal then
-		Values = NormalValues
-	elseif coming_from == game_loop_config.coming_from_testing then
-		Values = TestingValues
-	else
-		Values = QuickTestValues
-	end
+	Values = ComingFromValues[scenes.ComingFrom()] or DefValues
 
 	Loading = wrap(function()
 		Running = running()
