@@ -144,7 +144,7 @@ end
 -- list is dispatched, with the same argument.
 -- @pgroup view Level scene view.
 -- @param which As a **uint**, a level index as per @{game.LevelsList.GetLevel}. As a
--- **string**, a level as archived by @{game.Persistence.Encode}.
+-- **string**, a level as archived by @{corona_utils.persistence.Encode}.
 function M.LoadLevel (view, which)
 	assert(not CurrentLevel, "Level not unloaded")
 	assert(not Loading, "Load already in progress")
