@@ -34,96 +34,98 @@ if system.getInfo("environment") == "simulator" then
 	native.setActivityIndicator(false)
 end
 
--- Cache original functions.
-local newContainer = display.newContainer
-local newGroup = display.newGroup
+if system.getInfo("build") < "2015.2544" then -- Daily that fixes "finalize" bug
+	-- Cache original functions.
+	local newContainer = display.newContainer
+	local newGroup = display.newGroup
 
--- remove() function: seems to be shared among all containers and groups --
-local Remove
+	-- remove() function: seems to be shared among all containers and groups --
+	local Remove
 
--- Finalize event --
-local Finalize = { name = "finalize" }
+	-- Finalize event --
+	local Finalize = { name = "finalize" }
 
--- Helper to dispatch "finalize" to children
-local function FinalizeChildren (object, omit_self)
-	local otype = object._type
+	-- Helper to dispatch "finalize" to children
+	local function FinalizeChildren (object, omit_self)
+		local otype = object._type
 
-	if otype == "ContainerObject" or otype == "GroupObject" then
-		for i = 1, object.numChildren do
-			FinalizeChildren(object[i])
-		end
-	end
-
-	if omit_self then
-		Finalize.target = nil
-	else
-		Finalize.target = object
-
-		object:dispatchEvent(Finalize)
-	end
-end
-
--- Installs new remove() function
-local function SetRemoveFunc (object)
-	if not Remove then
-		local remove = object.remove
-
-		function Remove (self, c_or_i)
-			local child = c_or_i
-
-			if type(c_or_i) == "number" then
-				child = self[c_or_i]
+		if otype == "ContainerObject" or otype == "GroupObject" then
+			for i = 1, object.numChildren do
+				FinalizeChildren(object[i])
 			end
+		end
 
-			FinalizeChildren(child, true)
+		if omit_self then
+			Finalize.target = nil
+		else
+			Finalize.target = object
 
-			remove(self, c_or_i)
+			object:dispatchEvent(Finalize)
 		end
 	end
 
-	object.remove = Remove
-end
+	-- Installs new remove() function
+	local function SetRemoveFunc (object)
+		if not Remove then
+			local remove = object.remove
 
--- Creates new removeSelf() function
-local function NewRemoveSelfFunc (object)
-	local removeSelf = object.removeSelf
+			function Remove (self, c_or_i)
+				local child = c_or_i
 
-	return function(self)
-		FinalizeChildren(self, true)
+				if type(c_or_i) == "number" then
+					child = self[c_or_i]
+				end
 
-		removeSelf(self)
+				FinalizeChildren(child, true)
+
+				remove(self, c_or_i)
+			end
+		end
+
+		object.remove = Remove
 	end
-end
 
--- removeSelf() function: seems to be shared among all containers --
-local ContRemoveSelf
+	-- Creates new removeSelf() function
+	local function NewRemoveSelfFunc (object)
+		local removeSelf = object.removeSelf
 
---- Override of `display.newContainer`, with fix for removals (namely, to ensure that
--- **"finalize"** events get dispatched to children.
--- @param ... Args passed along to original function.
--- @treturn Container Container object.
-function display.newContainer (...)
-	local cont = newContainer(...)
+		return function(self)
+			FinalizeChildren(self, true)
 
-	SetRemoveFunc(cont)
+			removeSelf(self)
+		end
+	end
 
-	ContRemoveSelf = ContRemoveSelf or NewRemoveSelfFunc(cont)
+	-- removeSelf() function: seems to be shared among all containers --
+	local ContRemoveSelf
 
-	cont.removeSelf = ContRemoveSelf
+	--- Override of `display.newContainer`, with fix for removals (namely, to ensure that
+	-- **"finalize"** events get dispatched to children.
+	-- @param ... Args passed along to original function.
+	-- @treturn Container Container object.
+	function display.newContainer (...)
+		local cont = newContainer(...)
 
-	return cont
-end
+		SetRemoveFunc(cont)
 
---- Override of `display.newGroup`, with fix as per `newContainer`.
--- @treturn Group Group object.
-function display.newGroup ()
-	local group = newGroup()
+		ContRemoveSelf = ContRemoveSelf or NewRemoveSelfFunc(cont)
 
-	SetRemoveFunc(group)
+		cont.removeSelf = ContRemoveSelf
 
-	group.removeSelf = NewRemoveSelfFunc(group)
+		return cont
+	end
 
-	return group
+	--- Override of `display.newGroup`, with fix as per `newContainer`.
+	-- @treturn Group Group object.
+	function display.newGroup ()
+		local group = newGroup()
+
+		SetRemoveFunc(group)
+
+		group.removeSelf = NewRemoveSelfFunc(group)
+
+		return group
+	end
 end
 
 -- Export the module.
