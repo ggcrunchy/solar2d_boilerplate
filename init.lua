@@ -46,6 +46,10 @@ local native = native
 local Runtime = Runtime
 local system = system
 
+-- Display setup.
+display.setStatusBar(display.HiddenStatusBar)
+display.setDefault("isShaderCompilerVerbose", true)
+
 -- Install the coroutine time logic.
 flow_bodies.SetTimeLapseFuncs(per_coroutine.TimeLapse(frames.DiffTime, frames.GetFrameID))
 
