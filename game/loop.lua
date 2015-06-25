@@ -39,6 +39,7 @@ local scenes = require("corona_utils.scenes")
 
 -- Corona globals --
 local Runtime = Runtime
+local timer = timer
 
 -- Corona modules --
 local composer = require("composer")
@@ -46,22 +47,17 @@ local composer = require("composer")
 -- Exports --
 local M = {}
 
--- Assorted values, during normal play... --
-local NormalValues = game_loop_config.normal_values
+-- Return-to scene, during normal play... --
+local NormalReturnTo = game_loop_config.normal_return_to
 
--- ...those same values, if the level was launched from the editor... --
-local TestingValues = game_loop_config.testing_values
+-- ...if the level was launched from the editor... --
+local TestingReturnTo = game_loop_config.testing_return_to
 
 -- ...or from the intro / title screen... --
-local QuickTestValues = game_loop_config.quick_test_values
+local QuickTestReturnTo = game_loop_config.quick_test_return_to
 
--- ...the current set of values in effect  --
-local Values
-
---- DOCME
-function M.GetWaitToEndTime ()
-	return Values.wait_to_end
-end
+-- ...the current return-to scene in effect  --
+local ReturnTo
 
 -- Helper to call a possibly non-existent function
 local function Call (func, ...)
@@ -106,26 +102,26 @@ end
 
 -- Cues an overlay scene
 local function DoOverlay (name, func, arg)
-	if name and Values == NormalValues then
+	if name and ReturnTo == NormalReturnTo then
 		scenes.Send("message:show_overlay", name, func, arg)
 	else
 		func(arg)
 	end
 end
 
--- Coming from -> values map; fallback values --
-local ComingFromValues, DefValues = {}, NormalValues
+-- Coming from -> return-to map; fallback return-to --
+local ComingFromReturnTo, DefReturnTo = {}, NormalReturnTo
 
--- Set up the value associations.
-for what, values in pairs{ normal = NormalValues, quick_test = QuickTestValues, testing = TestingValues } do
+-- Set up the return-to associations.
+for what, return_to in pairs{ normal = NormalReturnTo, quick_test = QuickTestReturnTo, testing = TestingReturnTo } do
 	local come_from = game_loop_config["coming_from_" .. what]
 
 	if come_from then
-		ComingFromValues[come_from] = values
+		ComingFromReturnTo[come_from] = return_to
 	end
 
-	if what == game_loop_config.default_values then
-		DefValues = values
+	if what == game_loop_config.default_return_to then
+		DefReturnTo = return_to
 	end
 end
 
@@ -149,7 +145,7 @@ function M.LoadLevel (view, which)
 	assert(not CurrentLevel, "Level not unloaded")
 	assert(not Loading, "Load already in progress")
 
-	Values = ComingFromValues[scenes.ComingFrom()] or DefValues
+	ReturnTo = ComingFromReturnTo[scenes.ComingFrom()] or DefReturnTo
 
 	Loading = wrap(function()
 		Running = running()
@@ -210,13 +206,15 @@ local function Leave (info)
 	Runtime:dispatchEvent{ name = "leave_level", why = info.why }
 
 	--
-	local return_to = Values.return_to
+	local return_to = ReturnTo
 
 	if type(return_to) == "function" then
 		return_to = return_to(info)
 	end
 
-	composer.gotoScene(return_to, game_loop_config.leave_effect)
+	timer.performWithDelay(game_loop_config.wait_to_end, function()
+		composer.gotoScene(return_to, game_loop_config.leave_effect)
+	end)
 end
 
 -- Possible overlays to play on unload --
