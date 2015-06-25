@@ -235,6 +235,8 @@ function M.UnloadLevel (why)
 	if CurrentLevel.is_loaded then
 		CurrentLevel.is_loaded = false
 
+		Runtime:dispatchEvent{ name = "level_done", why = why }
+
 		DoOverlay(Overlay[why], Leave, { which = CurrentLevel.which, why = why })
 	end
 end
