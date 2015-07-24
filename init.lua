@@ -56,11 +56,8 @@ flow_bodies.SetTimeLapseFuncs(per_coroutine.TimeLapse(frames.DiffTime, frames.Ge
 -- Use standard tracebacks.
 errors.SetTracebackFunc(debug.traceback)
 
--- Are we running on device? --
-local OnDevice = system.getInfo("environment") == "device"
-
--- Install environment-limited events, if possible.
-if system.getInfo("platformName") == "Android" or not OnDevice then
+-- Install various events.
+do
 	-- Handler helper
 	local function Handles (what)
 		what = "message:handles_" .. what
@@ -72,18 +69,15 @@ if system.getInfo("platformName") == "Android" or not OnDevice then
 		end
 	end
 
-	-- Device-only events.
-	if OnDevice then
-		-- "axis" listener --
-		Runtime:addEventListener("axis", Handles("axis"))
+	-- "axis" listener --
+	Runtime:addEventListener("axis", Handles("axis"))
 
-		-- "system" listener --
-		Runtime:addEventListener("system", function(event)
-			if event.type == "applicationStart" or event.type == "applicationResume" then
-				device.EnumerateDevices()
-			end
-		end)
-	end
+	-- "system" listener --
+	Runtime:addEventListener("system", function(event)
+		if event.type == "applicationStart" or event.type == "applicationResume" then
+			device.EnumerateDevices()
+		end
+	end)
 
 	-- "key" listener --
 	local HandleKey = Handles("key")
@@ -111,7 +105,7 @@ if system.getInfo("platformName") == "Android" or not OnDevice then
 end
 
 -- "unhandledError" listener --
-if OnDevice then
+if system.getInfo("environment") == "device" then
 	Runtime:addEventListener("unhandledError", function(event)
 		native.showAlert("Error!", event.errorMessage .. " \n " .. event.stackTrace, { "OK" }, native.requestExit)
 	end)
