@@ -31,5 +31,41 @@ if system.getInfo("environment") == "simulator" then
 	native.setActivityIndicator(false)
 end
 
+do
+	local type = type
+
+	-- Monkey-patch display.newSnapshot(). Maintain some weak parent lookups for a snapshot's
+	-- group and canvas until the snapshot has been removed.
+	local WeakParent = setmetatable({}, { __mode = "v" })
+	local old_newSnapshot = display.newSnapshot
+
+	function display.newSnapshot (...)
+		local snapshot = old_newSnapshot(...)
+
+		WeakParent[snapshot.canvas], WeakParent[snapshot.group] = snapshot, snapshot
+
+		return snapshot
+	end
+
+	-- Validity predicate, with special consideration for snapshot groups and canvases
+	local function IsValid (object)
+		if type(object) == "table" then
+			if object.parent ~= nil then
+				return true
+			else
+				return IsValid(WeakParent[object])
+			end
+		end
+
+		return false
+	end
+
+	--- Detects whether the input is a display object that has not yet been removed.
+	-- @function display.isValid
+	-- @pobject object Display object.
+	-- @treturn boolean Is this a valid display object?
+	display.isValid = IsValid
+end
+
 -- Export the module.
 return M
