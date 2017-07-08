@@ -83,12 +83,21 @@ local Loading
 
 -- Running coroutine: used to detect runaway errors --
 local Running
-
+local II=0
 -- Loads part of the scene, and handles completion
 local function LoadSome ()
+	II=II+1
+	if II ~= 1 then -- these SHOULD be balanced
+		print("!!!!!") -- LoadSome() called recursively?
+	end
+	if Running and status(Running) == "normal" then
+		print("!??!!?!?") -- some other coroutine is stuck!
+		print(debug.traceback())
+		print(debug.traceback(Running))
+	end
 	-- After the first frame, we have a handle to the running coroutine. The coroutine will
-	-- go dead either when the loading finishes or if there was an error along the way, and
-	-- in both cases we remove it.
+	-- go dead either when loading finishes or if there was an error along the way. In both
+	-- cases we remove it.
 	if Running and status(Running) == "dead" then
 		Loading, Running = nil
 
@@ -98,6 +107,7 @@ local function LoadSome ()
 	else
 		Loading()
 	end
+	II=II-1
 end
 
 -- Cues an overlay scene
@@ -177,11 +187,10 @@ function M.LoadLevel (view, which)
 		-- Patch up deferred objects.
 		bind.Resolve("loading_level")
 
-		-- Some of the loading may have been expensive, which can lead to an unnatural
-		-- start, since various things will act as if that time had passed for them as
-		-- well. We try to account for this by waiting a frame and getting a fresh start.
-		-- This will actually go several frames in the typical (i.e. non-testing) case
-		-- that we are showing a "starting the level" overlay at the same time.
+		-- Some of the loading might have been expensive. This can lead to unnatural starts,
+		-- since the elapsed time will leak into objects' update logic. We try to account for
+		-- this by waiting a frame to get a fresh start. If we show a "starting the level"
+		-- overlay, it will have to do these yields anyhow, so the two situations dovetail.
 		local is_done = false
 
 		DoOverlay(game_loop_config.start_overlay, function()
