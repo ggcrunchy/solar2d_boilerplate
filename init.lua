@@ -111,6 +111,9 @@ if system.getInfo("environment") == "device" then
 	end)
 end
 
+-- Intercept new "enterFrame" events so that we can do once-per-frame actions.
+frames.InterceptEnterFrameEvents()
+
 --- Helper to print formatted argument.
 -- @string s Format string.
 -- @param ... Format arguments.
