@@ -32,7 +32,7 @@ local wrap = coroutine.wrap
 local yield = coroutine.yield
 
 -- Modules --
-local bind = require("tektite_core.bind")
+local bind = require("corona_utils.bind")
 local game_loop_config = require("config.GameLoop")
 local persistence = require("corona_utils.persistence")
 local scenes = require("corona_utils.scenes")
@@ -46,6 +46,9 @@ local composer = require("composer")
 
 -- Exports --
 local M = {}
+
+-- Limit runaway actions.
+bind.SetActionLimit(game_loop_config.action_limit)
 
 -- Return-to scene, during normal play... --
 local NormalReturnTo = game_loop_config.normal_return_to
