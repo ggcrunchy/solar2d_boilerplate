@@ -50,6 +50,10 @@ local system = system
 display.setStatusBar(display.HiddenStatusBar)
 display.setDefault("isShaderCompilerVerbose", true)
 
+if system.getInfo("platform") == "android" and system.getInfo("environment") == "device" then
+	native.setProperty("androidSystemUiVisibility", "immersiveSticky")
+end
+
 -- Install the coroutine time logic.
 flow_bodies.SetTimeLapseFuncs(per_coroutine.TimeLapse(frames.DiffTime, frames.GetFrameID))
 
