@@ -86,18 +86,9 @@ local Loading
 
 -- Running coroutine: used to detect runaway errors --
 local Running
-local II=0
+
 -- Loads part of the scene, and handles completion
 local function LoadSome ()
-	II=II+1
-	if II ~= 1 then -- these SHOULD be balanced
-		print("!!!!!") -- LoadSome() called recursively?
-	end
-	if Running and status(Running) == "normal" then
-		print("!??!!?!?") -- some other coroutine is stuck!
-		print(debug.traceback())
-		print(debug.traceback(Running))
-	end
 	-- After the first frame, we have a handle to the running coroutine. The coroutine will
 	-- go dead either when loading finishes or if there was an error along the way. In both
 	-- cases we remove it.
@@ -110,7 +101,6 @@ local function LoadSome ()
 	else
 		Loading()
 	end
-	II=II-1
 end
 
 -- Cues an overlay scene
@@ -140,17 +130,18 @@ end
 
 --- Loads a level.
 --
--- The level information is gathered into a table and the **enter_level** event list is
+-- The level information is gathered into a table and the **enter\_level** event list is
 -- dispatched with said table as argument. It has the following fields:
 --
 -- * **ncols**, **nrows**: Columns wide and rows tall of level, respectively.
 -- * **w**, **h**: Tile width and height, respectively.
--- * **game_group**, **hud_group**: Primary display groups.
--- * **bg_layer**, **tiles_layer**, **decals_layer**, **things_layer**, **markers_layer**:
+-- * **game\_group**, **hud\_group**: Primary display groups.
+-- * **bg\_layer**, **tiles\_layer**, **decals\_layer**, **things\_layer**, **markers\_layer**:
 -- Game group sublayers.
 --
--- After tiles and game objects have been added to the level, the **things_loaded** event
--- list is dispatched, with the same argument.
+-- After tiles and game objects have been added to the level, the **things\_loaded** event
+-- list is dispatched, with the same argument. Shortly after that, a **ready\_to\_draw**
+-- event is dispatched, followed by any overlay. Finally, a **ready\_to\_go** event follows.
 -- @pgroup view Level scene view.
 -- @param which As a **uint**, a level index as per @{game.LevelsList.GetLevel}. As a
 -- **string**, a level as archived by @{corona_utils.persistence.Encode}.
@@ -190,20 +181,34 @@ function M.LoadLevel (view, which)
 		-- Patch up deferred objects.
 		bind.Resolve("loading_level")
 
+		-- Dispatch to "things_loaded" observers, now that most objects are in place.
+		CurrentLevel.name = "things_loaded"
+
+		Runtime:dispatchEvent(CurrentLevel)
+
 		-- Some of the loading might have been expensive. This can lead to unnatural starts,
 		-- since the elapsed time will leak into objects' update logic. We try to account for
 		-- this by waiting a frame to get a fresh start. If we show a "starting the level"
 		-- overlay, it will have to do these yields anyhow, so the two situations dovetail.
+		-- TODO: update these comments a bit to account for new loading logic
 		local is_done = false
 
 		DoOverlay(game_loop_config.start_overlay, function()
 			is_done = true
 		end)
 
-		repeat yield() until is_done
+		yield()
 
-		-- Dispatch to "things_loaded" observers, now that most objects are in place.
-		CurrentLevel.name = "things_loaded"
+		CurrentLevel.name = "ready_to_draw"
+
+		Runtime:dispatchEvent(CurrentLevel)
+
+		while not is_done do
+			yield()
+		end
+
+		-- We now have a valid level.
+		CurrentLevel.name = "ready_to_go"
 
 		Runtime:dispatchEvent(CurrentLevel)
 
@@ -255,7 +260,7 @@ end
 Call(game_loop_config.on_init)
 
 -- Listen to events.
-Runtime:addEventListener("enter_menus", function()
+Runtime:addEventListener("unloaded", function()
 	Call(game_loop_config.cleanup, CurrentLevel)
 
 	CurrentLevel = nil
