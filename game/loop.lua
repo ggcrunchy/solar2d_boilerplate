@@ -261,7 +261,9 @@ Call(game_loop_config.on_init)
 
 -- Listen to events.
 Runtime:addEventListener("unloaded", function()
-	Call(game_loop_config.cleanup, CurrentLevel)
+	if CurrentLevel then
+		Call(game_loop_config.cleanup, CurrentLevel)
+	end
 
 	CurrentLevel = nil
 end)
