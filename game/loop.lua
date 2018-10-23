@@ -176,7 +176,7 @@ function M.LoadLevel (view, which)
 		Runtime:dispatchEvent(CurrentLevel)
 
 		-- Add things to the level.
-		Call(game_loop_config.add_things, CurrentLevel, level)
+		Call(game_loop_config.add_things, CurrentLevel, level, { pubsub = "loading_level" }) -- TODO: will become PubSubList, etc.
 
 		-- Patch up deferred objects.
 		bind.Resolve("loading_level")
