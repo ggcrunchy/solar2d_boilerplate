@@ -33,8 +33,10 @@ local yield = coroutine.yield
 
 -- Modules --
 local bind = require("corona_utils.bind")
+local call = require("corona_utils.call")
 local game_loop_config = require("config.GameLoop")
 local persistence = require("corona_utils.persistence")
+local pubsub = require("corona_utils.pubsub")
 local scenes = require("corona_utils.scenes")
 
 -- Corona globals --
@@ -48,7 +50,7 @@ local composer = require("composer")
 local M = {}
 
 -- Limit runaway actions.
-bind.SetActionLimit(game_loop_config.action_limit)
+--[[bind]]call.SetActionLimit(game_loop_config.action_limit)
 
 -- Return-to scene, during normal play... --
 local NormalReturnTo = game_loop_config.normal_return_to
@@ -169,17 +171,19 @@ function M.LoadLevel (view, which)
 		Call(game_loop_config.before_entering, view, CurrentLevel, level, game_loop_config.level_list)
 
 		-- Dispatch to "enter level" observers, now that the basics are in place.
-		bind.Reset("loading_level")
+	--	bind.Reset("loading_level")
+		local ps_list = pubsub.New()
 
 		CurrentLevel.name = "enter_level"
 
 		Runtime:dispatchEvent(CurrentLevel)
 
 		-- Add things to the level.
-		Call(game_loop_config.add_things, CurrentLevel, level, { pubsub = "loading_level" }) -- TODO: will become PubSubList, etc.
+		Call(game_loop_config.add_things, CurrentLevel, level, { ps_list = ps_list })
 
 		-- Patch up deferred objects.
-		bind.Resolve("loading_level")
+	--	bind.Resolve("loading_level")
+		ps_list:Dispatch()
 
 		-- Dispatch to "things_loaded" observers, now that most objects are in place.
 		CurrentLevel.name = "things_loaded"
