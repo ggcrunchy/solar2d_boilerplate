@@ -172,18 +172,18 @@ function M.LoadLevel (view, which)
 
 		-- Dispatch to "enter level" observers, now that the basics are in place.
 	--	bind.Reset("loading_level")
-		local ps_list = pubsub.New()
+		local pub_sub_list = pubsub.New()
 
 		CurrentLevel.name = "enter_level"
 
 		Runtime:dispatchEvent(CurrentLevel)
 
 		-- Add things to the level.
-		Call(game_loop_config.add_things, CurrentLevel, level, { ps_list = ps_list })
+		Call(game_loop_config.add_things, CurrentLevel, level, { pub_sub_list = pub_sub_list })
 
 		-- Patch up deferred objects.
 	--	bind.Resolve("loading_level")
-		ps_list:Dispatch()
+		pub_sub_list:Dispatch()
 
 		-- Dispatch to "things_loaded" observers, now that most objects are in place.
 		CurrentLevel.name = "things_loaded"
