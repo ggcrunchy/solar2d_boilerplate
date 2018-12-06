@@ -26,6 +26,7 @@
 -- Standard library imports --
 local assert = assert
 local running = coroutine.running
+local setmetatable = setmetatable
 local status = coroutine.status
 local type = type
 local wrap = coroutine.wrap
@@ -130,6 +131,15 @@ for what, return_to in pairs{ normal = NormalReturnTo, quick_test = QuickTestRet
 	end
 end
 
+local AddThingsParams = {}
+
+AddThingsParams.__index = AddThingsParams
+
+--- DOCME
+function AddThingsParams:GetPubSubList ()
+	return self.m_pubsub
+end
+
 --- Loads a level.
 --
 -- The level information is gathered into a table and the **enter\_level** event list is
@@ -172,18 +182,20 @@ function M.LoadLevel (view, which)
 
 		-- Dispatch to "enter level" observers, now that the basics are in place.
 	--	bind.Reset("loading_level")
-		local pub_sub_list = pubsub.New()
-
 		CurrentLevel.name = "enter_level"
 
 		Runtime:dispatchEvent(CurrentLevel)
 
 		-- Add things to the level.
-		Call(game_loop_config.add_things, CurrentLevel, level, { pub_sub_list = pub_sub_list })
+		local psl = pubsub.New()
+
+		Call(game_loop_config.add_things, CurrentLevel, level, setmetatable({
+			m_pubsub = psl
+		}, AddThingsParams))
 
 		-- Patch up deferred objects.
 	--	bind.Resolve("loading_level")
-		pub_sub_list:Dispatch()
+		psl:Dispatch()
 
 		-- Dispatch to "things_loaded" observers, now that most objects are in place.
 		CurrentLevel.name = "things_loaded"
