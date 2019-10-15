@@ -25,20 +25,17 @@
 
 -- Standard library imports --
 local assert = assert
-local running = coroutine.running
 local setmetatable = setmetatable
-local status = coroutine.status
 local type = type
-local wrap = coroutine.wrap
 local yield = coroutine.yield
 
 -- Modules --
-local bind = require("corona_utils.bind")
+--local bind = require("corona_utils.bind")
 local call = require("corona_utils.call")
 local game_loop_config = require("config.GameLoop")
 local persistence = require("corona_utils.persistence")
 local pubsub = require("corona_utils.pubsub")
-local scenes = require("corona_utils.scenes")
+local timers = require("corona_utils.timers")
 
 -- Corona globals --
 local Runtime = Runtime
@@ -49,6 +46,10 @@ local composer = require("composer")
 
 -- Exports --
 local M = {}
+
+--
+--
+--
 
 -- Limit runaway actions.
 --[[bind]]call.SetActionLimit(game_loop_config.action_limit)
@@ -72,46 +73,19 @@ local function Call (func, ...)
 	end
 end
 
--- Decodes a level blob into a level list-compatible form
-local function Decode (str)
-	local level = persistence.Decode(str)
-
-	Call(game_loop_config.on_decode, level)
-
-	return level
-end
-
--- State of in-progress level --
-local CurrentLevel
-
--- In-progress loading coroutine --
-local Loading
-
--- Running coroutine: used to detect runaway errors --
-local Running
-
--- Loads part of the scene, and handles completion
-local function LoadSome ()
-	-- After the first frame, we have a handle to the running coroutine. The coroutine will
-	-- go dead either when loading finishes or if there was an error along the way. In both
-	-- cases we remove it.
-	if Running and status(Running) == "dead" then
-		Loading, Running = nil
-
-		Runtime:removeEventListener("enterFrame", LoadSome)
-
-	-- Coroutine still alive: run it another frame.
-	else
-		Loading()
-	end
-end
+local ShowOverlayEvent = { name = "show_overlay", isModal = true }
 
 -- Cues an overlay scene
-local function DoOverlay (name, func, arg)
+local function DoOverlay (name, on_done, params)
 	if name and ReturnTo == NormalReturnTo then
-		scenes.Send("message:show_overlay", name, func, arg)
+		ShowOverlayEvent.overlay_name = name
+		ShowOverlayEvent.on_done, ShowOverlayEvent.params = on_done, params
+
+		Runtime:dispatchEvent(ShowOverlayEvent)
+
+		ShowOverlayEvent.params = nil
 	else
-		func(arg)
+		on_done(params)
 	end
 end
 
@@ -140,6 +114,12 @@ function AddThingsParams:GetPubSubList ()
 	return self.m_pubsub
 end
 
+local CurrentLevel, LoadingTimer
+
+local function NotLoading ()
+	return not LoadingTimer or timers.HasExpired(LoadingTimer)
+end
+
 --- Loads a level.
 --
 -- The level information is gathered into a table and the **enter\_level** event list is
@@ -159,18 +139,17 @@ end
 -- **string**, a level as archived by @{corona_utils.persistence.Encode}.
 function M.LoadLevel (view, which)
 	assert(not CurrentLevel, "Level not unloaded")
-	assert(not Loading, "Load already in progress")
+	assert(NotLoading(), "Load already in progress")
 
-	ReturnTo = ComingFromReturnTo[scenes.ComingFrom()] or DefReturnTo
-
-	Loading = wrap(function()
-		Running = running()
-
+	ReturnTo = ComingFromReturnTo[composer.getSceneName("previous")] or DefReturnTo
+	LoadingTimer = timers.Wrap(10, function()
 		-- Get the level info, either by decoding a database blob or grabbing it from the list.
 		local level
 
 		if type(which) == "string" then
-			level, which = Decode(which), ""
+			level, which = persistence.Decode(which), ""
+
+			Call(game_loop_config.on_decode, level)
 		else
 			level = game_loop_config.level_list.GetLevel(which)
 		end
@@ -228,10 +207,8 @@ function M.LoadLevel (view, which)
 
 		Runtime:dispatchEvent(CurrentLevel)
 
-		CurrentLevel.is_loaded = true
+		CurrentLevel.is_loaded, LoadingTimer = true
 	end)
-
-	Runtime:addEventListener("enterFrame", LoadSome)
 end
 
 -- Helper to leave level
@@ -260,7 +237,7 @@ local Overlay = { won = game_loop_config.win_overlay, lost = game_loop_config.lo
 -- The **leave_level** event list is dispatched, with _why_ as argument.
 -- @string why Reason for unloading, which should be **won"**, **"lost"**, or **"quit"**.
 function M.UnloadLevel (why)
-	assert(not Loading, "Cannot unload: load in progress")
+	assert(NotLoading(), "Cannot unload: load in progress")
 	assert(CurrentLevel, "No level to unload")
 
 	if CurrentLevel.is_loaded then
@@ -284,5 +261,4 @@ Runtime:addEventListener("unloaded", function()
 	CurrentLevel = nil
 end)
 
--- Export the module.
 return M

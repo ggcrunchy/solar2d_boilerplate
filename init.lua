@@ -27,24 +27,32 @@
 require("corona_boilerplate.FIXES")
 
 -- Standard library imports --
+local assert = assert
 local error = error
 local pcall = pcall
 local print = print
+local type = type
+local unpack = unpack
 
 -- Modules --
-local debug = require("debug")
 local device = require("corona_utils.device")
-local errors = require("tektite_core.errors")
+local event_stack = require("corona_utils.event_stack")
 local flow_bodies = require("coroutine_ops.flow_bodies")
 local frames = require("corona_utils.frames")
 local per_coroutine = require("coroutine_ops.per_coroutine")
-local scenes = require("corona_utils.scenes")
 local var_dump = require("tektite_core.var.dump")
 
 -- Corona globals --
 local native = native
 local Runtime = Runtime
 local system = system
+
+-- Corona modules --
+local composer = require("composer")
+
+--
+--
+--
 
 -- Display setup.
 display.setStatusBar(display.HiddenStatusBar)
@@ -57,56 +65,12 @@ end
 -- Install the coroutine time logic.
 flow_bodies.SetTimeLapseFuncs(per_coroutine.TimeLapse(frames.DiffTime, frames.GetFrameID))
 
--- Use standard tracebacks.
-errors.SetTracebackFunc(debug.traceback)
-
--- Install various events.
-do
-	-- Handler helper
-	local function Handles (what)
-		what = "message:handles_" .. what
-
-		return function(event)
-			if scenes.Send(what, event) then
-				return true
-			end
-		end
+-- "system" listener --
+Runtime:addEventListener("system", function(event)
+	if event.type == "applicationStart" or event.type == "applicationResume" then
+		device.EnumerateDevices()
 	end
-
-	-- "axis" listener --
-	Runtime:addEventListener("axis", Handles("axis"))
-
-	-- "system" listener --
-	Runtime:addEventListener("system", function(event)
-		if event.type == "applicationStart" or event.type == "applicationResume" then
-			device.EnumerateDevices()
-		end
-	end)
-
-	-- "key" listener --
-	local HandleKey = Handles("key")
-
-	Runtime:addEventListener("key", function(event)
-		if HandleKey(event) then
-			return true
-		else
-			local key = event.keyName
-			local go_back = key == "back" or key == "deleteBack"
-
-			if go_back or key == "volumeUp" or key == "volumeDown" then
-				if event.phase == "down" then
-					if go_back then
-						scenes.WantsToGoBack()
-					else
-						-- VOLUME
-					end
-				end
-
-				return true
-			end
-		end
-	end)
-end
+end)
 
 -- "unhandledError" listener --
 if system.getInfo("environment") == "device" then
@@ -114,6 +78,104 @@ if system.getInfo("environment") == "device" then
 		native.showAlert("Error!", event.errorMessage .. " \n " .. event.stackTrace, { "OK" }, native.requestExit)
 	end)
 end
+
+local function AddHandledEvent (name, event_name)
+	local stack = event_stack.New()
+
+	composer.setVariable(name, stack)
+
+	Runtime:addEventListener(event_name or name, function(event)
+		return event_stack.Call(stack, event)
+	end)
+
+	return stack
+end
+
+-- "wants to go back" listener
+AddHandledEvent("wants_to_go_back")
+
+local WantsToGoBackEvent = { name = "wants_to_go_back" }
+
+local function WantsToGoBack ()
+	Runtime:dispatchEvent(WantsToGoBackEvent)
+end
+
+composer.setVariable("WantsToGoBack", WantsToGoBack)
+
+-- "key" listener --
+local handle_key = AddHandledEvent("handle_key", "key")
+
+local VolumeChangeEvent = { name = "volume_change" }
+
+handle_key:Push(function(event)
+	local key = event.keyName
+
+	if key == "volumeUp" or key == "volumeDown" then
+		VolumeChangeEvent.change = key == "volumeUp" and "up" or "down"
+
+		Runtime:dispatchEvent(VolumeChangeEvent)
+
+		return true
+	end
+end)
+
+handle_key:Push(function(event)
+	local key = event.keyName
+
+	if key == "back" or key == "deleteBack" then
+		if event.phase == "down" then
+			WantsToGoBack()
+		end
+
+		return true
+	else
+		return "call_next_handler" -- volume
+	end
+end)
+
+handle_key:Bake()
+
+-- Overlay listeners
+local function OverlayHandlersShell (handler, event)
+	handler(event)
+
+	return "call_next_handler"
+end
+
+local hide_overlay, oargs = AddHandledEvent("hide_overlay"), {}
+
+hide_overlay:Push(function(event)
+	local n, effect, time = 0, event.effect, event.time
+
+	assert(effect == nil or type(effect) == "string", "Invalid overlay hide effect")
+	assert(time == nil or type(time) == "number" and time > 0, "Invalid overlay hide time")
+
+	if event.recycleOnly == true then
+		oargs[1], n = true, 2
+	end
+
+	if effect then
+		oargs[n + 1], n = effect, n + 1
+	end
+
+	if time then
+		oargs[n + 1], n = time, n + 1
+	end
+
+	composer.hideOverlay(unpack(oargs, 1, n))
+end)
+
+hide_overlay:Bake()
+hide_overlay:SetShell(OverlayHandlersShell)
+
+local show_overlay = AddHandledEvent("show_overlay")
+
+show_overlay:Push(function(event)
+	composer.showOverlay(event.overlay_name, event)
+end)
+
+show_overlay:Bake()
+show_overlay:SetShell(OverlayHandlersShell)
 
 -- Intercept new "enterFrame" events so that we can do once-per-frame actions.
 frames.InterceptEnterFrameEvents()

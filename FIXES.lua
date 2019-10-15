@@ -26,6 +26,10 @@
 -- Exports --
 local M = {}
 
+--
+--
+--
+
 -- Remove any lingering indicator.
 if system.getInfo("environment") == "simulator" then
 	native.setActivityIndicator(false)
@@ -50,11 +54,7 @@ do
 	-- Validity predicate, with special consideration for snapshot groups and canvases
 	local function IsValid (object)
 		if type(object) == "table" then
-			if object.parent ~= nil then
-				return true
-			else
-				return IsValid(WeakParent[object])
-			end
+			return object.parent ~= nil or IsValid(WeakParent[object])
 		end
 
 		return false
@@ -67,5 +67,4 @@ do
 	display.isValid = IsValid
 end
 
--- Export the module.
 return M
