@@ -252,7 +252,6 @@ end
 -- Perform any other initialization.
 Call(game_loop_config.on_init)
 
--- Listen to events.
 Runtime:addEventListener("unloaded", function()
 	if CurrentLevel then
 		Call(game_loop_config.cleanup, CurrentLevel)
