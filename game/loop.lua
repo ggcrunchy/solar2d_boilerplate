@@ -25,7 +25,9 @@
 
 -- Standard library imports --
 local assert = assert
+local error = error
 local setmetatable = setmetatable
+local traceback = debug.traceback
 local type = type
 local yield = coroutine.yield
 
@@ -115,6 +117,10 @@ function AddThingsParams:GetPubSubList ()
 end
 
 local CurrentLevel, LoadingTimer
+
+local function ErrorFunc (err, coro)
+		error(err .. "\n" .. traceback(coro, "\n(error loading level)\n", 2), 0)
+end
 
 local function NotLoading ()
 	return not LoadingTimer or timers.HasExpired(LoadingTimer)
@@ -208,7 +214,7 @@ function M.LoadLevel (view, which)
 		Runtime:dispatchEvent(CurrentLevel)
 
 		CurrentLevel.is_loaded, LoadingTimer = true
-	end)
+	end, ErrorFunc)
 end
 
 -- Helper to leave level
