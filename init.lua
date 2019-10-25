@@ -63,7 +63,7 @@ if system.getInfo("platform") == "android" and system.getInfo("environment") == 
 end
 
 -- Install the coroutine time logic.
-flow_bodies.SetTimeLapseFuncs(per_coroutine.TimeLapse(frames.DiffTime, frames.GetFrameID))
+flow_bodies.SetTimeLapseFuncs(per_coroutine.TimeLapse(frames.DiffTime, Runtime.getFrameID))
 
 -- "system" listener --
 Runtime:addEventListener("system", function(event)
@@ -176,9 +176,6 @@ end)
 
 show_overlay:Bake()
 show_overlay:SetShell(OverlayHandlersShell)
-
--- Intercept new "enterFrame" events so that we can do once-per-frame actions.
-frames.InterceptEnterFrameEvents()
 
 --- Helper to print formatted argument.
 -- @string s Format string.
