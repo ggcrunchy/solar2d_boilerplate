@@ -111,12 +111,19 @@ local AddThingsParams = {}
 
 AddThingsParams.__index = AddThingsParams
 
+local CurrentLevel
+
+--- DOCME
+function AddThingsParams:GetCurrentLevelProperty (name)
+	return CurrentLevel and CurrentLevel[name]
+end
+
 --- DOCME
 function AddThingsParams:GetPubSubList ()
 	return self.m_pubsub
 end
 
-local CurrentLevel, LoadingTimer
+local LoadingTimer
 
 local function ErrorFunc (err, coro)
 		error(err .. "\n" .. traceback(coro, "\n(error loading level)\n", 2), 0)
