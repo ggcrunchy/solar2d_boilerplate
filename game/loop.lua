@@ -217,7 +217,6 @@ function M.LoadLevel (view, which)
 	end, ErrorFunc)
 end
 
--- Helper to leave level
 local function Leave (info)
 	Runtime:dispatchEvent{ name = "leave_level", why = info.why }
 
