@@ -107,15 +107,12 @@ for what, return_to in pairs{ normal = NormalReturnTo, quick_test = QuickTestRet
 	end
 end
 
-local AddThingsParams = {}
-
-AddThingsParams.__index = AddThingsParams
-
 local CurrentLevel
 
---- DOCME
-function AddThingsParams:GetCurrentLevelProperty (name)
-	return CurrentLevel and CurrentLevel[name]
+local AddThingsParams = {}
+
+function AddThingsParams:__index (k)
+	return AddThingsParams[k] or (CurrentLevel and CurrentLevel[k])
 end
 
 --- DOCME
