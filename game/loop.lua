@@ -169,18 +169,23 @@ function M.LoadLevel (view, which)
 
 		Call(game_loop_config.before_entering, view, CurrentLevel, level, game_loop_config.level_list)
 
+		local psl = pubsub.New()
+		local atp = setmetatable({
+			m_pubsub = psl
+		}, AddThingsParams)
+
 		-- Dispatch to "enter level" observers, now that the basics are in place.
 	--	bind.Reset("loading_level")
 		CurrentLevel.name = "enter_level"
+		CurrentLevel.level = level
+		CurrentLevel.params = atp
 
 		Runtime:dispatchEvent(CurrentLevel)
 
-		-- Add things to the level.
-		local psl = pubsub.New()
+		CurrentLevel.level, CurrentLevel.params = nil
 
-		Call(game_loop_config.add_things, CurrentLevel, level, setmetatable({
-			m_pubsub = psl
-		}, AddThingsParams))
+		-- Add things to the level.
+		Call(game_loop_config.add_things, CurrentLevel, level, atp)
 
 		-- Patch up deferred objects.
 	--	bind.Resolve("loading_level")
