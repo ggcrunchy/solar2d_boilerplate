@@ -24,7 +24,7 @@
 --
 
 -- Apply fixes --
-require("corona_boilerplate.FIXES")
+require("solar2d_boilerplate.FIXES")
 
 -- Standard library imports --
 local assert = assert
@@ -35,10 +35,10 @@ local type = type
 local unpack = unpack
 
 -- Modules --
-local device = require("corona_utils.device")
-local event_stack = require("corona_utils.event_stack")
+local device = require("solar2d_utils.device")
+local event_stack = require("solar2d_utils.event_stack")
 local flow_bodies = require("coroutine_ops.flow_bodies")
-local frames = require("corona_utils.frames")
+local frames = require("solar2d_utils.frames")
 local per_coroutine = require("coroutine_ops.per_coroutine")
 local var_dump = require("tektite_core.var.dump")
 

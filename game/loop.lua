@@ -32,12 +32,12 @@ local type = type
 local yield = coroutine.yield
 
 -- Modules --
---local bind = require("corona_utils.bind")
-local call = require("corona_utils.call")
+--local bind = require("solar2d_utils.bind")
+local call = require("solar2d_utils.call")
 local game_loop_config = require("config.GameLoop")
-local persistence = require("corona_utils.persistence")
-local pubsub = require("corona_utils.pubsub")
-local timers = require("corona_utils.timers")
+local persistence = require("solar2d_utils.persistence")
+local pubsub = require("solar2d_utils.pubsub")
+local timers = require("solar2d_utils.timers")
 
 -- Corona globals --
 local Runtime = Runtime
@@ -146,7 +146,7 @@ end
 -- event is dispatched, followed by any overlay. Finally, a **ready\_to\_go** event follows.
 -- @pgroup view Level scene view.
 -- @param which As a **uint**, a level index as per @{game.LevelsList.GetLevel}. As a
--- **string**, a level as archived by @{corona_utils.persistence.Encode}.
+-- **string**, a level as archived by @{solar2d_utils.persistence.Encode}.
 function M.LoadLevel (view, which)
 	assert(not CurrentLevel, "Level not unloaded")
 	assert(NotLoading(), "Load already in progress")
