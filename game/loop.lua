@@ -39,11 +39,11 @@ local persistence = require("solar2d_utils.persistence")
 local pubsub = require("solar2d_utils.pubsub")
 local timers = require("solar2d_utils.timers")
 
--- Corona globals --
+-- Solar2D globals --
 local Runtime = Runtime
 local timer = timer
 
--- Corona modules --
+-- Solar2D modules --
 local composer = require("composer")
 
 -- Exports --

@@ -42,12 +42,12 @@ local frames = require("solar2d_utils.frames")
 local per_coroutine = require("coroutine_ops.per_coroutine")
 local var_dump = require("tektite_core.var.dump")
 
--- Corona globals --
+-- Solar2D globals --
 local native = native
 local Runtime = Runtime
 local system = system
 
--- Corona modules --
+-- Solar2D modules --
 local composer = require("composer")
 
 --
