@@ -32,7 +32,6 @@ local type = type
 local yield = coroutine.yield
 
 -- Modules --
---local bind = require("solar2d_utils.bind")
 local call = require("solar2d_utils.call")
 local game_loop_config = require("config.GameLoop")
 local persistence = require("solar2d_utils.persistence")
@@ -54,7 +53,7 @@ local M = {}
 --
 
 -- Limit runaway actions.
---[[bind]]call.SetActionLimit(game_loop_config.action_limit)
+call.SetEnvironment(game_loop_config.action_environment)
 
 -- Return-to scene, during normal play... --
 local NormalReturnTo = game_loop_config.normal_return_to
@@ -68,7 +67,6 @@ local QuickTestReturnTo = game_loop_config.quick_test_return_to
 -- ...the current return-to scene in effect  --
 local ReturnTo
 
--- Helper to call a possibly non-existent function
 local function Call (func, ...)
 	if func then
 		return func(...)
@@ -77,7 +75,6 @@ end
 
 local ShowOverlayEvent = { name = "show_overlay", isModal = true }
 
--- Cues an overlay scene
 local function DoOverlay (name, on_done, params)
 	if name and ReturnTo == NormalReturnTo then
 		ShowOverlayEvent.overlay_name = name
@@ -241,7 +238,6 @@ local function Leave (info)
 	end)
 end
 
--- Possible overlays to play on unload --
 local Overlay = { won = game_loop_config.win_overlay, lost = game_loop_config.lost_overlay }
 
 --- Unloads the current level and returns to a menu.
