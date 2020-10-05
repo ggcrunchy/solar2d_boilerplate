@@ -35,11 +35,10 @@ local type = type
 local unpack = unpack
 
 -- Modules --
+local coro_flow = require("solar2d_utils.coro_flow")
 local device = require("solar2d_utils.device")
 local event_stack = require("solar2d_utils.event_stack")
-local flow = require("coroutine_ops.flow")
 local frames = require("solar2d_utils.frames")
-local per_coroutine = require("coroutine_ops.per_coroutine")
 local var_dump = require("tektite_core.var.dump")
 
 -- Solar2D globals --
@@ -63,10 +62,10 @@ if system.getInfo("platform") == "android" and system.getInfo("environment") == 
 end
 
 -- Install the coroutine time logic.
-local control = per_coroutine.MakeValue()
+local storage = coro_flow.MakeLocalStorage()
 
 local function TimeFunc (used)
-	local func = control()
+	local func = storage()
 
 	if not func then
 		local old_id, time_left = false -- use some non-number initial ID
@@ -87,13 +86,13 @@ local function TimeFunc (used)
 			end
 		end
 
-		control(func)
+		storage(func)
 	end
 
 	return func(used)
 end
 
-flow.SetTimeLapseFuncs(
+coro_flow.SetTimeLapseFuncs(
 	function() -- suppress arguments
 		return TimeFunc()
 	end,
