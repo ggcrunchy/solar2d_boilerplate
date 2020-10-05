@@ -37,7 +37,7 @@ local unpack = unpack
 -- Modules --
 local device = require("solar2d_utils.device")
 local event_stack = require("solar2d_utils.event_stack")
-local flow_bodies = require("coroutine_ops.flow_bodies")
+local flow = require("coroutine_ops.flow")
 local frames = require("solar2d_utils.frames")
 local per_coroutine = require("coroutine_ops.per_coroutine")
 local var_dump = require("tektite_core.var.dump")
@@ -63,7 +63,42 @@ if system.getInfo("platform") == "android" and system.getInfo("environment") == 
 end
 
 -- Install the coroutine time logic.
-flow_bodies.SetTimeLapseFuncs(per_coroutine.TimeLapse(frames.DiffTime, Runtime.getFrameID))
+local control = per_coroutine.MakeValue()
+
+local function TimeFunc (used)
+	local func = control()
+
+	if not func then
+		local old_id, time_left = false -- use some non-number initial ID
+
+		function func (deduct)
+			local cur_id = Runtime.getFrameID()
+
+			if cur_id ~= old_id then
+				old_id, time_left = cur_id, frames.DiffTime()
+			end
+
+			if deduct == time_left then
+				time_left = 0
+			elseif deduct then
+				time_left = time_left - deduct
+			else
+				return time_left
+			end
+		end
+
+		control(func)
+	end
+
+	return func(used)
+end
+
+flow.SetTimeLapseFuncs(
+	function() -- suppress arguments
+		return TimeFunc()
+	end,
+	TimeFunc
+)
 
 -- "system" listener --
 Runtime:addEventListener("system", function(event)
