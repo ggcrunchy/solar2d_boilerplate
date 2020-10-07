@@ -26,6 +26,7 @@
 -- Standard library imports --
 local assert = assert
 local error = error
+local pairs = pairs
 local setmetatable = setmetatable
 local traceback = debug.traceback
 local type = type
@@ -44,6 +45,9 @@ local timer = timer
 
 -- Solar2D modules --
 local composer = require("composer")
+
+-- Cached module references --
+local _UnloadLevel_
 
 -- Exports --
 local M = {}
@@ -120,7 +124,7 @@ end
 local LoadingTimer
 
 local function ErrorFunc (err, coro)
-		error(err .. "\n" .. traceback(coro, "\n(error loading level)\n", 2), 0)
+	error(err .. "\n" .. traceback(coro, "\n(error loading level)\n", 2), 0)
 end
 
 local function NotLoading ()
@@ -259,15 +263,22 @@ function M.UnloadLevel (why)
 	end
 end
 
--- Perform any other initialization.
-Call(game_loop_config.on_init)
+for k, v in pairs{
+	unloaded = function()
+		if CurrentLevel then
+			Call(game_loop_config.cleanup, CurrentLevel)
+		end
 
-Runtime:addEventListener("unloaded", function()
-	if CurrentLevel then
-		Call(game_loop_config.cleanup, CurrentLevel)
+		CurrentLevel = nil
+	end,
+
+	unload_level = function(event)
+		_UnloadLevel_(event.why)
 	end
+} do
+	Runtime:addEventListener(k, v)
+end
 
-	CurrentLevel = nil
-end)
+_UnloadLevel_ = M.UnloadLevel
 
 return M
