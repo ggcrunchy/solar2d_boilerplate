@@ -33,8 +33,8 @@ local type = type
 local yield = coroutine.yield
 
 -- Modules --
-local call = require("solar2d_utils.call")
 local game_loop_config = require("config.GameLoop")
+local multicall = require("solar2d_utils.multicall")
 local persistence = require("solar2d_utils.persistence")
 local pubsub = require("solar2d_utils.pubsub")
 local timers = require("solar2d_utils.timers")
@@ -57,7 +57,7 @@ local M = {}
 --
 
 -- Limit runaway actions.
-call.SetEnvironment(game_loop_config.action_environment)
+multicall.SetEnvironment(game_loop_config.action_environment)
 
 -- Return-to scene, during normal play... --
 local NormalReturnTo = game_loop_config.normal_return_to
