@@ -35,9 +35,9 @@ local type = type
 local unpack = unpack
 
 -- Modules --
+local call_chain = require("solar2d_utils.call_chain")
 local coro_flow = require("solar2d_utils.coro_flow")
 local device = require("solar2d_utils.device")
-local event_stack = require("solar2d_utils.event_stack")
 local frames = require("solar2d_utils.frames")
 local var_dump = require("tektite_core.var.dump")
 
@@ -53,7 +53,6 @@ local composer = require("composer")
 --
 --
 
--- Display setup.
 display.setStatusBar(display.HiddenStatusBar)
 display.setDefault("isShaderCompilerVerbose", true)
 
@@ -61,7 +60,12 @@ if system.getInfo("platform") == "android" and system.getInfo("environment") == 
 	native.setProperty("androidSystemUiVisibility", "immersiveSticky")
 end
 
--- Install the coroutine time logic.
+--
+--
+-- Coroutine time
+--
+--
+
 local storage = coro_flow.MakeLocalStorage()
 
 local function TimeFunc (used)
@@ -99,33 +103,46 @@ coro_flow.SetTimeLapseFuncs(
 	TimeFunc
 )
 
--- "system" listener --
+--
+--
+-- "system" listener
+--
+--
+
 Runtime:addEventListener("system", function(event)
 	if event.type == "applicationStart" or event.type == "applicationResume" then
 		device.EnumerateDevices()
 	end
 end)
 
--- "unhandledError" listener --
+--
+--
+-- "unhandledError" listener
+--
+--
+
 if system.getInfo("environment") == "device" then
 	Runtime:addEventListener("unhandledError", function(event)
 		native.showAlert("Error!", event.errorMessage .. " \n " .. event.stackTrace, { "OK" }, native.requestExit)
 	end)
 end
 
+--
+--
+-- "wants to go back" listener
+--
+--
+
 local function AddHandledEvent (name, event_name)
-	local stack = event_stack.New()
+	local chain = call_chain.New(event_name or name)
 
-	composer.setVariable(name, stack)
+	composer.setVariable(name, chain)
 
-	Runtime:addEventListener(event_name or name, function(event)
-		return event_stack.Call(stack, event)
-	end)
+	Runtime:addEventListener(event_name or name, chain)
 
-	return stack
+	return chain
 end
 
--- "wants to go back" listener
 AddHandledEvent("wants_to_go_back")
 
 local WantsToGoBackEvent = { name = "wants_to_go_back" }
@@ -136,7 +153,12 @@ end
 
 composer.setVariable("WantsToGoBack", WantsToGoBack)
 
--- "key" listener --
+--
+--
+-- "key" listener
+--
+--
+
 local handle_key = AddHandledEvent("handle_key", "key")
 
 local VolumeChangeEvent = { name = "volume_change" }
@@ -169,7 +191,12 @@ end)
 
 handle_key:Bake()
 
+--
+--
 -- Overlay listeners
+--
+--
+
 local function OverlayHandlersShell (handler, event)
 	handler(event)
 
@@ -210,6 +237,10 @@ end)
 
 show_overlay:Bake()
 show_overlay:SetShell(OverlayHandlersShell)
+
+--
+--
+--
 
 --- Helper to print formatted argument.
 -- @string s Format string.
