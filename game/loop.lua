@@ -263,21 +263,29 @@ function M.UnloadLevel (why)
 	end
 end
 
-for k, v in pairs{
-	unloaded = function()
-		if CurrentLevel then
-			Call(game_loop_config.cleanup, CurrentLevel)
-		end
+--
+--
+--
 
-		CurrentLevel = nil
-	end,
-
-	unload_level = function(event)
-		_UnloadLevel_(event.why)
+Runtime:addEventListener("unloaded", function()
+	if CurrentLevel then
+		Call(game_loop_config.cleanup, CurrentLevel)
 	end
-} do
-	Runtime:addEventListener(k, v)
-end
+
+	CurrentLevel = nil
+end)
+
+--
+--
+--
+
+Runtime:addEventListener("unload_level", function(event)
+	_UnloadLevel_(event.why)
+end)
+
+--
+--
+--
 
 _UnloadLevel_ = M.UnloadLevel
 
