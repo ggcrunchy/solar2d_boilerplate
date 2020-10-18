@@ -249,7 +249,10 @@ function printf (s, ...)
 	print(s:format(...))
 end
 
--- Install printf as the default var dump routine.
+--
+--
+--
+
 var_dump.SetDefaultOutf(printf)
 
 --- Helper to dump generic variable.
@@ -260,6 +263,10 @@ function vdump (var, name, limit)
 	var_dump.Print(var, name and { name = name, limit = limit })
 end
 
+--
+--
+--
+
 --- Helper to dump generic variable, with integer values in hex.
 -- @param var Variable to dump.
 -- @param name As per @{tektite_core.var.dump.Print}.
@@ -267,6 +274,10 @@ end
 function vdumpx (var, name, limit)
 	var_dump.Print(var, { hex_uints = true, name = name, limit = limit })
 end
+
+--
+--
+--
 
 -- Make require report the vicinity of its call site, in case of error.
 local old_require = require
