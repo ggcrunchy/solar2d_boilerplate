@@ -80,16 +80,16 @@ end
 local ShowOverlayEvent = { name = "show_overlay", isModal = true }
 
 local function DoOverlay (name, on_done, params)
-	if name and ReturnTo == NormalReturnTo then
-		ShowOverlayEvent.overlay_name = name
-		ShowOverlayEvent.on_done, ShowOverlayEvent.params = on_done, params
-
-		Runtime:dispatchEvent(ShowOverlayEvent)
-
-		ShowOverlayEvent.params = nil
-	else
-		on_done(params)
+	if ReturnTo ~= NormalReturnTo then
+		name = nil -- use immediately "done" path instead
 	end
+
+	ShowOverlayEvent.overlay_name = name
+	ShowOverlayEvent.on_done, ShowOverlayEvent.params = on_done, params
+
+	Runtime:dispatchEvent(ShowOverlayEvent)
+
+	ShowOverlayEvent.params = nil
 end
 
 -- Coming from -> return-to map; fallback return-to --
@@ -227,6 +227,8 @@ function M.LoadLevel (view, which)
 	end, ErrorFunc)
 end
 
+local WaitToEnd = game_loop_config.wait_to_end
+
 local function Leave (info)
 	Runtime:dispatchEvent{ name = "leave_level", why = info.why }
 
@@ -237,9 +239,15 @@ local function Leave (info)
 		return_to = return_to(info)
 	end
 
-	timer.performWithDelay(game_loop_config.wait_to_end, function()
+	local function ChangeScene ()
 		composer.gotoScene(return_to, game_loop_config.leave_effect)
-	end)
+	end
+
+	if WaitToEnd then
+		timer.performWithDelay(WaitToEnd, ChangeScene)
+	else
+		ChangeScene()
+	end
 end
 
 local Overlay = { won = game_loop_config.win_overlay, lost = game_loop_config.lost_overlay }
@@ -262,6 +270,14 @@ function M.UnloadLevel (why)
 		DoOverlay(Overlay[why], Leave, { which = CurrentLevel.which, why = why })
 	end
 end
+
+--
+--
+--
+
+Runtime:addEventListener("DEBUG_suppress_overlays", function()
+	WaitToEnd = nil
+end)
 
 --
 --

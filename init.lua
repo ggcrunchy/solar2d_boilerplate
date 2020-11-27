@@ -193,6 +193,18 @@ handle_key:Bake()
 
 --
 --
+-- "DEBUG_suppress_overlays" listener
+--
+--
+
+local SuppressOverlays
+
+Runtime:addEventListener("DEBUG_suppress_overlays", function()
+	SuppressOverlays = true
+end)
+
+--
+--
 -- Overlay listeners
 --
 --
@@ -206,24 +218,26 @@ end
 local hide_overlay, oargs = AddHandledEvent("hide_overlay"), {}
 
 hide_overlay:Push(function(event)
-	local n, effect, time = 0, event.effect, event.time
+	if not SuppressOverlays then
+		local n, effect, time = 0, event.effect, event.time
 
-	assert(effect == nil or type(effect) == "string", "Invalid overlay hide effect")
-	assert(time == nil or type(time) == "number" and time > 0, "Invalid overlay hide time")
+		assert(effect == nil or type(effect) == "string", "Invalid overlay hide effect")
+		assert(time == nil or type(time) == "number" and time > 0, "Invalid overlay hide time")
 
-	if event.recycleOnly == true then
-		oargs[1], n = true, 2
+		if event.recycleOnly == true then
+			oargs[1], n = true, 2
+		end
+
+		if effect then
+			oargs[n + 1], n = effect, n + 1
+		end
+
+		if time then
+			oargs[n + 1], n = time, n + 1
+		end
+
+		composer.hideOverlay(unpack(oargs, 1, n))
 	end
-
-	if effect then
-		oargs[n + 1], n = effect, n + 1
-	end
-
-	if time then
-		oargs[n + 1], n = time, n + 1
-	end
-
-	composer.hideOverlay(unpack(oargs, 1, n))
 end)
 
 hide_overlay:Bake()
@@ -232,7 +246,11 @@ hide_overlay:SetShell(OverlayHandlersShell)
 local show_overlay = AddHandledEvent("show_overlay")
 
 show_overlay:Push(function(event)
-	composer.showOverlay(event.overlay_name, event)
+	if event.overlay_name and not SuppressOverlays then
+		composer.showOverlay(event.overlay_name, event)
+	elseif event.on_done then
+		event.on_done(event.params)
+	end
 end)
 
 show_overlay:Bake()
