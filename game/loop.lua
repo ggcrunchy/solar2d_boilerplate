@@ -116,10 +116,36 @@ function AddThingsParams:__index (k)
 	return AddThingsParams[k] or (CurrentLevel and CurrentLevel[k])
 end
 
+--
+--
+--
+
+--- DOCME
+function AddThingsParams:GetGroup (name)
+	return self.m_groups[name]
+end
+
+--
+--
+--
+
+--- DOCME
+function AddThingsParams:GetLayer (name)
+	return self.m_layers[name]
+end
+
+--
+--
+--
+
 --- DOCME
 function AddThingsParams:GetPubSubList ()
 	return self.m_pubsub
 end
+
+--
+--
+--
 
 local LoadingTimer
 
@@ -131,20 +157,21 @@ local function NotLoading ()
 	return not LoadingTimer or timers.HasExpired(LoadingTimer)
 end
 
---- Loads a level.
+--- Load a level.
 --
 -- The level information is gathered into a table and the **enter\_level** event list is
 -- dispatched with said table as argument. It has the following fields:
 --
 -- * **ncols**, **nrows**: Columns wide and rows tall of level, respectively.
 -- * **w**, **h**: Tile width and height, respectively.
--- * **game\_group**, **hud\_group**: Primary display groups.
--- * **bg\_layer**, **tiles\_layer**, **decals\_layer**, **things\_layer**, **markers\_layer**:
+-- * **game**, **canvas**, **game\_dynamic**, **hud**: Primary display groups.
+-- * **background**, **tiles**, **decals**, **things**, **markers**:
 -- Game group sublayers.
 --
 -- After tiles and game objects have been added to the level, the **things\_loaded** event
 -- list is dispatched, with the same argument. Shortly after that, a **ready\_to\_draw**
 -- event is dispatched, followed by any overlay. Finally, a **ready\_to\_go** event follows.
+-- TODO: this needs revision (params, groups and layers)!
 -- @pgroup view Level scene view.
 -- @param which As a **uint**, a level index as per @{game.LevelsList.GetLevel}. As a
 -- **string**, a level as archived by @{solar2d_utils.persistence.Encode}.
@@ -172,24 +199,26 @@ function M.LoadLevel (view, which)
 
 		local psl = pubsub.New()
 		local atp = setmetatable({
+			m_groups = CurrentLevel.groups,
+			m_layers = CurrentLevel.layers,
 			m_pubsub = psl
 		}, AddThingsParams)
 
+		CurrentLevel.groups, CurrentLevel.layers = nil
+
 		-- Dispatch to "enter level" observers, now that the basics are in place.
-	--	bind.Reset("loading_level")
 		CurrentLevel.name = "enter_level"
 		CurrentLevel.level = level
 		CurrentLevel.params = atp
 
 		Runtime:dispatchEvent(CurrentLevel)
 
-		CurrentLevel.level, CurrentLevel.params = nil
-
 		-- Add things to the level.
-		Call(game_loop_config.add_things, CurrentLevel, level, atp)
+		Call(game_loop_config.add_things, level, atp)
+
+		CurrentLevel.level, atp.m_pubsub = nil
 
 		-- Patch up deferred objects.
-	--	bind.Resolve("loading_level")
 		psl:Dispatch()
 
 		-- Dispatch to "things_loaded" observers, now that most objects are in place.
@@ -227,6 +256,10 @@ function M.LoadLevel (view, which)
 	end, ErrorFunc)
 end
 
+--
+--
+--
+
 local WaitToEnd = game_loop_config.wait_to_end
 
 local function Leave (info)
@@ -252,7 +285,7 @@ end
 
 local Overlay = { won = game_loop_config.win_overlay, lost = game_loop_config.lost_overlay }
 
---- Unloads the current level and returns to a menu.
+--- Unload the current level and return to a menu.
 --
 -- This will be the appropriate game or editor menu, depending on how the level was launched.
 --
