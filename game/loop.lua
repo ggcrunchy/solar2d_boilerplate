@@ -40,6 +40,7 @@ local pubsub = require("solar2d_utils.pubsub")
 local timers = require("solar2d_utils.timers")
 
 -- Solar2D globals --
+local display = display
 local Runtime = Runtime
 local timer = timer
 
@@ -110,10 +111,10 @@ end
 
 local CurrentLevel
 
-local AddThingsParams = {}
+local LevelParams = {}
 
-function AddThingsParams:__index (k)
-	return AddThingsParams[k] or (CurrentLevel and CurrentLevel[k])
+function LevelParams:__index (k)
+	return LevelParams[k] or (CurrentLevel and CurrentLevel[k])
 end
 
 --
@@ -121,7 +122,16 @@ end
 --
 
 --- DOCME
-function AddThingsParams:GetGroup (name)
+function LevelParams:GetData (name)
+	return self.m_data[name]
+end
+
+--
+--
+--
+
+--- DOCME
+function LevelParams:GetGroup (name)
 	return self.m_groups[name]
 end
 
@@ -130,7 +140,7 @@ end
 --
 
 --- DOCME
-function AddThingsParams:GetLayer (name)
+function LevelParams:GetLayer (name)
 	return self.m_layers[name]
 end
 
@@ -139,7 +149,30 @@ end
 --
 
 --- DOCME
-function AddThingsParams:GetPubSubList ()
+function LevelParams:GetOrAddData (name, new, arg)
+	local data = self.m_data[name]
+
+	if not data then
+		if new == "table" then
+			data = {}
+		elseif new == "group" then
+			data = display.newGroup()
+		elseif new then
+			data = new(arg)
+		end
+
+		self.m_data[name] = data
+	end
+
+	return data
+end
+
+--
+--
+--
+
+--- DOCME
+function LevelParams:GetPubSubList ()
 	return self.m_pubsub
 end
 
@@ -198,25 +231,26 @@ function M.LoadLevel (view, which)
 		Call(game_loop_config.before_entering, view, CurrentLevel, level, game_loop_config.level_list)
 
 		local psl = pubsub.New()
-		local atp = setmetatable({
+		local params = setmetatable({
+			m_data = {},
 			m_groups = CurrentLevel.groups,
 			m_layers = CurrentLevel.layers,
 			m_pubsub = psl
-		}, AddThingsParams)
+		}, LevelParams)
 
 		CurrentLevel.groups, CurrentLevel.layers = nil
 
 		-- Dispatch to "enter level" observers, now that the basics are in place.
 		CurrentLevel.name = "enter_level"
 		CurrentLevel.level = level
-		CurrentLevel.params = atp
+		CurrentLevel.params = params
 
 		Runtime:dispatchEvent(CurrentLevel)
 
 		-- Add things to the level.
-		Call(game_loop_config.add_things, level, atp)
+		Call(game_loop_config.add_things, level, params)
 
-		CurrentLevel.level, atp.m_pubsub = nil
+		CurrentLevel.level, params.m_pubsub = nil
 
 		-- Patch up deferred objects.
 		psl:Dispatch()
@@ -310,6 +344,16 @@ end
 
 Runtime:addEventListener("DEBUG_suppress_overlays", function()
 	WaitToEnd = nil
+end)
+
+--
+--
+--
+
+Runtime:addEventListener("reset_level", function()
+	if CurrentLevel then
+		Call(game_loop_config.reset_level, CurrentLevel)
+	end
 end)
 
 --
