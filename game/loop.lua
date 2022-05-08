@@ -72,7 +72,9 @@ local QuickTestReturnTo = game_loop_config.quick_test_return_to
 -- ...the current return-to scene in effect  --
 local ReturnTo
 
-local function Call (func, ...)
+local function Call (name, ...)
+  local func = game_loop_config[name]
+
 	if func then
 		return func(...)
 	end
@@ -109,12 +111,18 @@ for what, return_to in pairs{ normal = NormalReturnTo, quick_test = QuickTestRet
 	end
 end
 
-local CurrentLevel
-
 local LevelParams = {}
 
 function LevelParams:__index (k)
-	return LevelParams[k] or (CurrentLevel and CurrentLevel[k])
+  local value = LevelParams[k]
+
+  if value then
+    return value
+  else
+    local level = self.m_level
+
+    return level and level[k]
+  end
 end
 
 --
@@ -190,6 +198,8 @@ local function NotLoading ()
 	return not LoadingTimer or timers.HasExpired(LoadingTimer)
 end
 
+local CurrentLevel
+
 --- Load a level.
 --
 -- The level information is gathered into a table and the **enter\_level** event list is
@@ -209,7 +219,7 @@ end
 -- @param which As a **uint**, a level index as per @{game.LevelsList.GetLevel}. As a
 -- **string**, a level as archived by @{solar2d_utils.persistence.Encode}.
 function M.LoadLevel (view, which)
-	assert(not CurrentLevel, "Level not unloaded")
+	assert(not (CurrentLevel and CurrentLevel.is_loaded), "Level not unloaded")
 	assert(NotLoading(), "Load already in progress")
 
 	ReturnTo = ComingFromReturnTo[composer.getSceneName("previous")] or DefReturnTo
@@ -220,45 +230,45 @@ function M.LoadLevel (view, which)
 		if type(which) == "string" then
 			level, which = persistence.Decode(which), ""
 
-			Call(game_loop_config.on_decode, level)
+			Call("on_decode", level)
 		else
 			level = game_loop_config.level_list.GetLevel(which)
 		end
 
 		-- Do some preparation before entering.
-		CurrentLevel = { which = which }
+    local current_level = { which = which }
 
-		Call(game_loop_config.before_entering, view, CurrentLevel, level, game_loop_config.level_list)
+		Call("before_entering", view, current_level, level, game_loop_config.level_list)
 
 		local psl = pubsub.New()
 		local params = setmetatable({
-			m_data = {},
-			m_groups = CurrentLevel.groups,
-			m_layers = CurrentLevel.layers,
+			m_data = {}, m_level = current_level,
+			m_groups = current_level.groups,
+			m_layers = current_level.layers,
 			m_pubsub = psl
 		}, LevelParams)
 
-		CurrentLevel.groups, CurrentLevel.layers = nil
+		current_level.groups, current_level.layers = nil
 
 		-- Dispatch to "enter level" observers, now that the basics are in place.
-		CurrentLevel.name = "enter_level"
-		CurrentLevel.level = level
-		CurrentLevel.params = params
+		current_level.name = "enter_level"
+		current_level.level = level
+		current_level.params = params
 
-		Runtime:dispatchEvent(CurrentLevel)
+		Runtime:dispatchEvent(current_level)
 
 		-- Add things to the level.
-		Call(game_loop_config.add_things, level, params)
+		Call("add_things", level, params)
 
-		CurrentLevel.level, params.m_pubsub = nil
+		current_level.level, params.m_pubsub = nil
 
 		-- Patch up deferred objects.
 		psl:Dispatch()
 
 		-- Dispatch to "things_loaded" observers, now that most objects are in place.
-		CurrentLevel.name = "things_loaded"
+		current_level.name = "things_loaded"
 
-		Runtime:dispatchEvent(CurrentLevel)
+		Runtime:dispatchEvent(current_level)
 
 		-- Some of the loading might have been expensive. This can lead to unnatural starts,
 		-- since the elapsed time will leak into objects' update logic. We try to account for
@@ -273,20 +283,20 @@ function M.LoadLevel (view, which)
 
 		yield()
 
-		CurrentLevel.name = "ready_to_draw"
+		current_level.name = "ready_to_draw"
 
-		Runtime:dispatchEvent(CurrentLevel)
+		Runtime:dispatchEvent(current_level)
 
 		while not is_done do
 			yield()
 		end
 
 		-- We now have a valid level.
-		CurrentLevel.name = "ready_to_go"
+		current_level.name = "ready_to_go"
 
-		Runtime:dispatchEvent(CurrentLevel)
+		Runtime:dispatchEvent(current_level)
 
-		CurrentLevel.is_loaded, LoadingTimer = true
+		CurrentLevel, current_level.is_loaded, LoadingTimer = current_level, true
 	end, ErrorFunc)
 end
 
@@ -352,7 +362,7 @@ end)
 
 Runtime:addEventListener("reset_level", function()
 	if CurrentLevel then
-		Call(game_loop_config.reset_level, CurrentLevel)
+		Call("reset_level", CurrentLevel)
 	end
 end)
 
@@ -362,7 +372,7 @@ end)
 
 Runtime:addEventListener("unloaded", function()
 	if CurrentLevel then
-		Call(game_loop_config.cleanup, CurrentLevel)
+		Call("cleanup", CurrentLevel)
 	end
 
 	CurrentLevel = nil
