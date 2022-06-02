@@ -225,20 +225,26 @@ function M.LoadLevel (view, which)
 	ReturnTo = ComingFromReturnTo[composer.getSceneName("previous")] or DefReturnTo
 	LoadingTimer = timers.Wrap(10, function()
 		-- Get the level info, either by decoding a database blob or grabbing it from the list.
-		local level
+		local wtype, level =  type(which)
 
-		if type(which) == "string" then
+		if wtype == "string" and which:starts("encoded:") then -- TODO: figure out what needs fixing, or if worth keeping
 			level, which = persistence.Decode(which), ""
 
 			Call("on_decode", level)
 		else
-			level = game_loop_config.level_list.GetLevel(which)
+      local name, key = which
+
+      if wtype == "table" then
+        name, key = which.name, which.key
+      end
+
+			level = game_loop_config.load_level_data(name, key)
 		end
 
 		-- Do some preparation before entering.
     local current_level = { which = which }
 
-		Call("before_entering", view, current_level, level, game_loop_config.level_list)
+		Call("before_entering", view, current_level, level)
 
 		local psl = pubsub.New()
 		local params = setmetatable({
