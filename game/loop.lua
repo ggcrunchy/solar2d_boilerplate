@@ -287,7 +287,7 @@ function M.LoadLevel (view, which)
 			is_done = true
 		end)
 
-		yield()
+		yield() -- let enterFrame reset
 
 		current_level.name = "ready_to_draw"
 
@@ -298,6 +298,8 @@ function M.LoadLevel (view, which)
 		end
 
 		-- We now have a valid level.
+		yield() -- ditto
+
 		current_level.name = "ready_to_go"
 
 		Runtime:dispatchEvent(current_level)
