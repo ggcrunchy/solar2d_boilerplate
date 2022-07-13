@@ -35,7 +35,6 @@ local yield = coroutine.yield
 -- Modules --
 local game_loop_config = require("config.GameLoop")
 local multicall = require("solar2d_utils.multicall")
-local persistence = require("solar2d_utils.persistence")
 local pubsub = require("solar2d_utils.pubsub")
 local timers = require("solar2d_utils.timers")
 
@@ -225,12 +224,10 @@ function M.LoadLevel (view, which)
 	ReturnTo = ComingFromReturnTo[composer.getSceneName("previous")] or DefReturnTo
 	LoadingTimer = timers.Wrap(10, function()
 		-- Get the level info, either by decoding a database blob or grabbing it from the list.
-		local wtype, level =  type(which)
+		local wtype, level = type(which)
 
-		if wtype == "string" and which:starts("encoded:") then -- TODO: figure out what needs fixing, or if worth keeping
-			level, which = persistence.Decode(which), ""
-
-			Call("on_decode", level)
+		if wtype == "string" and which:starts("encoded:") then
+			level, which = assert(game_loop_config.on_decode, "No decoder for encoded data")(which), ""
 		else
       local name, key = which
 
