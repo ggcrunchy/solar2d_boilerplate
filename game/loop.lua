@@ -340,6 +340,7 @@ local Overlay = { won = game_loop_config.win_overlay, lost = game_loop_config.lo
 --
 -- The **leave_level** event list is dispatched, with _why_ as argument.
 -- @string why Reason for unloading, which should be **won"**, **"lost"**, or **"quit"**.
+-- TODO: docs need updating
 function M.UnloadLevel (why)
 	assert(NotLoading(), "Cannot unload: load in progress")
 	assert(CurrentLevel, "No level to unload")
