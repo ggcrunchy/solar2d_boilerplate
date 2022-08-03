@@ -312,7 +312,15 @@ end
 local WaitToEnd = game_loop_config.wait_to_end
 
 local function Leave (info)
-	Runtime:dispatchEvent{ name = "leave_level", why = info.why }
+  local event = {}
+
+  event.name = "pre_leave_level"
+
+  Runtime:dispatchEvent(event)
+
+  event.name, event.why = "leave_level", info.why
+
+	Runtime:dispatchEvent(event)
 
 	--
 	local return_to = ReturnTo
