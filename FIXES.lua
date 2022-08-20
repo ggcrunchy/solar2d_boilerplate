@@ -23,12 +23,19 @@
 -- [ MIT license: http://www.opensource.org/licenses/mit-license.php ]
 --
 
+-- Solar2D globals --
+local display = display
+local native = native
+local system = system
+
 -- Exports --
 local M = {}
 
 --
 --
 --
+
+display.setDefault("isImageSheetFrameTrimCorrected", true)
 
 -- Remove any lingering indicator.
 if system.getInfo("environment") == "simulator" then
