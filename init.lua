@@ -41,7 +41,11 @@ local device = require("solar2d_utils.device")
 local frames = require("solar2d_utils.frames")
 local var_dump = require("tektite_core.var.dump")
 
+-- Plugins --
+local soloud = require("plugin.soloud")
+
 -- Solar2D globals --
+local audio = audio
 local native = native
 local Runtime = Runtime
 local system = system
@@ -308,4 +312,14 @@ function require (modname)
 	else
 		error(res, 2)
 	end
+end
+
+--
+--
+--
+
+local core = soloud.createCore("CLIP_ROUNDOFF")
+
+function audio.getSoLoudCore ()
+  return core
 end

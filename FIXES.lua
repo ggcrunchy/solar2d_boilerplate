@@ -67,7 +67,7 @@ do
 		return false
 	end
 
-	--- Detects whether the input is a display object that has not yet been removed.
+	--- Detect whether the input is a display object that has not yet been removed.
 	-- @function display.isValid
 	-- @pobject object Display object.
 	-- @treturn boolean Is this a valid display object?
