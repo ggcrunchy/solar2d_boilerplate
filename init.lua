@@ -43,6 +43,7 @@ local var_dump = require("tektite_core.var.dump")
 
 -- Plugins --
 local soloud = require("plugin.soloud")
+local serialize = require("plugin.serialize")
 
 -- Solar2D globals --
 local audio = audio
@@ -52,6 +53,7 @@ local system = system
 
 -- Solar2D modules --
 local composer = require("composer")
+local json = require("json")
 
 --
 --
@@ -322,4 +324,38 @@ local core = soloud.createCore("CLIP_ROUNDOFF")
 
 function audio.getSoLoudCore ()
   return core
+end
+
+--
+--
+--
+
+local struct = serialize.struct
+
+local function ReadFloats (floats)
+  return struct.pack(("f"):rep(#floats), unpack(floats))
+end
+
+function audio.sfxrFromJSON (data)
+  local v = assert(json.decode(data), "Invalid SFXR data")
+  local result = struct.pack("<ii", 102, v.wave_type)
+
+  result = result .. ReadFloats{
+    v.sound_vol,
+    v.p_base_freq, v.p_freq_limit, v.p_freq_ramp, v.p_freq_dramp, v.p_duty, v.p_duty_ramp,
+    v.p_vib_strength, v.p_vib_speed, 0, -- delay read, but ignored
+    v.p_env_attack, v.p_env_sustain, v.p_env_decay, v.p_env_punch,
+  }
+
+	result = result .. struct.pack("x") -- read, but ignored
+
+  result = result .. ReadFloats{
+    v.p_lpf_resonance, v.p_lpf_freq, v.p_lpf_ramp,
+    v.p_hpf_freq, v.p_hpf_ramp,
+    v.p_pha_offset, v.p_pha_ramp,
+    v.p_repeat_speed,
+    v.p_arp_speed, v.p_arp_mod
+  }
+
+  return result
 end
