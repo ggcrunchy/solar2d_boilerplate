@@ -23,6 +23,9 @@
 -- [ MIT license: http://www.opensource.org/licenses/mit-license.php ]
 --
 
+-- Standard library imports --
+local sqrt = math.sqrt
+
 -- Solar2D globals --
 local display = display
 local native = native
@@ -41,6 +44,10 @@ display.setDefault("isImageSheetFrameTrimCorrected", true)
 if system.getInfo("environment") == "simulator" then
 	native.setActivityIndicator(false)
 end
+
+--
+--
+--
 
 do
 	local type = type
@@ -73,5 +80,27 @@ do
 	-- @treturn boolean Is this a valid display object?
 	display.isValid = IsValid
 end
+
+--
+--
+--
+
+function math.hypot (dx, dy)
+  return sqrt(dx * dx + dy * dy)
+end
+
+--
+--
+--
+
+function math.normalize (dx, dy)
+  local len = sqrt(dx * dx + dy * dy)
+
+  return dx / len, dy / len
+end
+
+--
+--
+--
 
 return M
